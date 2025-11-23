@@ -16,12 +16,12 @@ import {
 const EditorPage = () => {
   const [lang, setLang] = useRecoilState(language);
   const [them, setThem] = useRecoilState(cmtheme);
-
   const [clients, setClients] = useState([]);
 
-  // 1. NEW: State for handling code execution
+  // --- NEW FEATURES STATES ---
   const [output, setOutput] = useState("");
   const [isCompiling, setIsCompiling] = useState(false);
+  // ---------------------------
 
   const socketRef = useRef(null);
   const codeRef = useRef(null);
@@ -46,13 +46,11 @@ const EditorPage = () => {
         username: location.state?.username,
       });
 
-      // Listening for joined event
       socketRef.current.on(
         ACTIONS.JOINED,
         ({ clients, username, socketId }) => {
           if (username !== location.state?.username) {
             toast.success(`${username} joined the room.`);
-            console.log(`${username} joined`);
           }
           setClients(clients);
           socketRef.current.emit(ACTIONS.SYNC_CODE, {
@@ -62,7 +60,6 @@ const EditorPage = () => {
         }
       );
 
-      // Listening for disconnected
       socketRef.current.on(ACTIONS.DISCONNECTED, ({ socketId, username }) => {
         toast.success(`${username} left the room.`);
         setClients((prev) => {
@@ -72,9 +69,11 @@ const EditorPage = () => {
     };
     init();
     return () => {
-      socketRef.current.off(ACTIONS.JOINED);
-      socketRef.current.off(ACTIONS.DISCONNECTED);
-      socketRef.current.disconnect();
+      if(socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current.off(ACTIONS.JOINED);
+        socketRef.current.off(ACTIONS.DISCONNECTED);
+      }
     };
   }, []);
 
@@ -84,7 +83,6 @@ const EditorPage = () => {
       toast.success("Room ID has been copied to clipboard");
     } catch (err) {
       toast.error("Could not copy the Room ID");
-      console.error(err);
     }
   }
 
@@ -92,7 +90,7 @@ const EditorPage = () => {
     reactNavigator("/");
   }
 
-  // 2. NEW: Function to run the code via Piston API
+  // --- 1. RUN CODE FEATURE ---
   const runCode = async () => {
     setIsCompiling(true);
     try {
@@ -100,14 +98,12 @@ const EditorPage = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          language: lang === 'clike' ? 'java' : lang, // Fallback for clike
+          language: lang === 'clike' ? 'java' : lang,
           version: "*",
           files: [{ content: codeRef.current }]
         })
       });
       const data = await response.json();
-      
-      // Handle API errors or success
       if (data.run) {
           setOutput(data.run.output);
       } else {
@@ -118,6 +114,20 @@ const EditorPage = () => {
     } finally {
       setIsCompiling(false);
     }
+  };
+
+  // --- 2. DOWNLOAD CODE FEATURE ---
+  const downloadCode = () => {
+    const element = document.createElement("a");
+    const file = new Blob([codeRef.current], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    // Auto-detect extension
+    const extMap = {python: '.py', javascript: '.js', java: '.java', cpp: '.cpp', go: '.go'};
+    const ext = extMap[lang] || '.txt';
+    element.download = `code_${roomId}${ext}`;
+    document.body.appendChild(element);
+    element.click();
+    toast.success("Code Downloaded!");
   };
 
   if (!location.state) {
@@ -131,157 +141,96 @@ const EditorPage = () => {
           <div className="logo">
             <img className="logoImage" src="/logo.png" alt="logo" />
           </div>
-          <h3>Connected</h3>
-          <div className="clientsList">
-            {clients.map((client) => (
-              <Client key={client.socketId} username={client.username} />
-            ))}
+          
+          {/* Active Users Display */}
+          <div style={{marginBottom: '20px'}}>
+             <h3 style={{color: '#fff', borderBottom: '1px solid #444', paddingBottom: '10px'}}>Connected Users</h3>
+             <div className="clientsList">
+               {clients.map((client) => (
+                 <Client key={client.socketId} username={client.username} />
+               ))}
+             </div>
           </div>
         </div>
 
-        <label>
-          Select Language:
-          <select
-            value={lang}
-            onChange={(e) => {
-              setLang(e.target.value);
-              window.location.reload();
-            }}
-            className="seLang"
-          >
-            <option value="clike">C / C++ / C# / Java</option>
-            <option value="css">CSS</option>
-            <option value="dart">Dart</option>
-            <option value="django">Django</option>
-            <option value="dockerfile">Dockerfile</option>
-            <option value="go">Go</option>
-            <option value="htmlmixed">HTML-mixed</option>
-            <option value="javascript">JavaScript</option>
-            <option value="jsx">JSX</option>
-            <option value="markdown">Markdown</option>
-            <option value="php">PHP</option>
-            <option value="python">Python</option>
-            <option value="r">R</option>
-            <option value="rust">Rust</option>
-            <option value="ruby">Ruby</option>
-            <option value="sass">Sass</option>
-            <option value="shell">Shell</option>
-            <option value="sql">SQL</option>
-            <option value="swift">Swift</option>
-            <option value="xml">XML</option>
-            <option value="yaml">yaml</option>
-          </select>
-        </label>
+        {/* --- CONTROLS SECTION --- */}
+        <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+            
+            {/* Language Selector */}
+            <div style={{display:'flex', flexDirection:'column'}}>
+                <span style={{color:'#888', fontSize:'12px', marginBottom:'5px'}}>Language</span>
+                <select
+                value={lang}
+                onChange={(e) => {
+                    setLang(e.target.value);
+                    window.location.reload();
+                }}
+                className="seLang"
+                style={{marginBottom: '0px'}} // Override default css
+                >
+                <option value="javascript">JavaScript (Node)</option>
+                <option value="python">Python 3</option>
+                <option value="java">Java</option>
+                <option value="go">Go Lang</option>
+                <option value="cpp">C++</option>
+                </select>
+            </div>
 
-        <label>
-          Select Theme:
-          <select
-            value={them}
-            onChange={(e) => {
-              setThem(e.target.value);
-            }}
-            className="seLang"
-          >
-            <option value="default">default</option>
-            <option value="3024-day">3024-day</option>
-            <option value="3024-night">3024-night</option>
-            <option value="abbott">abbott</option>
-            <option value="abcdef">abcdef</option>
-            <option value="ambiance">ambiance</option>
-            <option value="ayu-dark">ayu-dark</option>
-            <option value="ayu-mirage">ayu-mirage</option>
-            <option value="base16-dark">base16-dark</option>
-            <option value="base16-light">base16-light</option>
-            <option value="bespin">bespin</option>
-            <option value="blackboard">blackboard</option>
-            <option value="cobalt">cobalt</option>
-            <option value="colorforth">colorforth</option>
-            <option value="darcula">darcula</option>
-            <option value="duotone-dark">duotone-dark</option>
-            <option value="duotone-light">duotone-light</option>
-            <option value="eclipse">eclipse</option>
-            <option value="elegant">elegant</option>
-            <option value="erlang-dark">erlang-dark</option>
-            <option value="gruvbox-dark">gruvbox-dark</option>
-            <option value="hopscotch">hopscotch</option>
-            <option value="icecoder">icecoder</option>
-            <option value="idea">idea</option>
-            <option value="isotope">isotope</option>
-            <option value="juejin">juejin</option>
-            <option value="lesser-dark">lesser-dark</option>
-            <option value="liquibyte">liquibyte</option>
-            <option value="lucario">lucario</option>
-            <option value="material">material</option>
-            <option value="material-darker">material-darker</option>
-            <option value="material-palenight">material-palenight</option>
-            <option value="material-ocean">material-ocean</option>
-            <option value="mbo">mbo</option>
-            <option value="mdn-like">mdn-like</option>
-            <option value="midnight">midnight</option>
-            <option value="monokai">monokai</option>
-            <option value="moxer">moxer</option>
-            <option value="neat">neat</option>
-            <option value="neo">neo</option>
-            <option value="night">night</option>
-            <option value="nord">nord</option>
-            <option value="oceanic-next">oceanic-next</option>
-            <option value="panda-syntax">panda-syntax</option>
-            <option value="paraiso-dark">paraiso-dark</option>
-            <option value="paraiso-light">paraiso-light</option>
-            <option value="pastel-on-dark">pastel-on-dark</option>
-            <option value="railscasts">railscasts</option>
-            <option value="rubyblue">rubyblue</option>
-            <option value="seti">seti</option>
-            <option value="shadowfox">shadowfox</option>
-            <option value="solarized">solarized</option>
-            <option value="the-matrix">the-matrix</option>
-            <option value="tomorrow-night-bright">tomorrow-night-bright</option>
-            <option value="tomorrow-night-eighties">
-              tomorrow-night-eighties
-            </option>
-            <option value="ttcn">ttcn</option>
-            <option value="twilight">twilight</option>
-            <option value="vibrant-ink">vibrant-ink</option>
-            <option value="xq-dark">xq-dark</option>
-            <option value="xq-light">xq-light</option>
-            <option value="yeti">yeti</option>
-            <option value="yonce">yonce</option>
-            <option value="zenburn">zenburn</option>
-          </select>
-        </label>
+            {/* Theme Selector */}
+            <div style={{display:'flex', flexDirection:'column'}}>
+                <span style={{color:'#888', fontSize:'12px', marginBottom:'5px'}}>Theme</span>
+                <select
+                    value={them}
+                    onChange={(e) => setThem(e.target.value)}
+                    className="seLang"
+                >
+                    <option value="dracula">Dracula</option>
+                    <option value="monokai">Monokai</option>
+                    <option value="material">Material</option>
+                    <option value="solarized">Solarized</option>
+                </select>
+            </div>
 
-        {/* 3. NEW: Run Button */}
-        <button 
-          className="btn runBtn" 
-          onClick={runCode} 
-          style={{backgroundColor: '#28a745', marginBottom: '10px'}}
-        >
-          {isCompiling ? "Running..." : "Run Code ▶"}
-        </button>
+            {/* ACTION BUTTONS (New Design) */}
+            
+            {/* Run Button */}
+            <button className="btn" onClick={runCode} style={{background: 'linear-gradient(90deg, #1CB5E0 0%, #000851 100%)', color: 'white', fontWeight:'bold'}}>
+                {isCompiling ? "Running..." : "▶ Run Code"}
+            </button>
 
-        <button className="btn copyBtn" onClick={copyRoomId}>
-          Copy ROOM ID
-        </button>
-        <button className="btn leaveBtn" onClick={leaveRoom}>
-          Leave
-        </button>
+             {/* Download Button */}
+             <button className="btn" onClick={downloadCode} style={{background: '#4a4a4a', color: 'white'}}>
+                ⬇ Download Code
+            </button>
 
-        {/* 4. NEW: Output Window (Added at bottom of sidebar) */}
+            {/* Copy Room ID */}
+            <button className="btn copyBtn" onClick={copyRoomId}>
+                Copy Room ID
+            </button>
+
+            {/* Leave Button */}
+            <button className="btn leaveBtn" onClick={leaveRoom}>
+                Leave Room
+            </button>
+        </div>
+
+        {/* OUTPUT WINDOW (Fixed at bottom) */}
         <div style={{
-            marginTop: '15px',
-            backgroundColor: '#1e1e1e',
-            color: '#fff',
-            borderRadius: '5px',
-            padding: '10px',
+            marginTop: 'auto', // Pushes to bottom
+            backgroundColor: '#111', 
+            padding: '10px', 
+            borderRadius: '8px', 
+            color: '#00ff00', 
             fontFamily: 'monospace',
             height: '150px',
             overflowY: 'auto',
-            fontSize: '0.9rem',
-            whiteSpace: 'pre-wrap'
+            fontSize: '0.85rem',
+            border: '1px solid #333'
         }}>
-           <strong style={{color: '#888'}}>Output:</strong><br/>
-           {output || "Run code to see output..."}
+            <strong style={{color: '#888', display:'block', marginBottom:'5px'}}>Terminal Output:</strong>
+            <pre style={{margin:0, whiteSpace: 'pre-wrap'}}>{output || "Waiting for output..."}</pre>
         </div>
+
       </div>
 
       <div className="editorWrap">
