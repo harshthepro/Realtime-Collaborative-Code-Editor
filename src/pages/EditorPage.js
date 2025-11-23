@@ -19,6 +19,10 @@ const EditorPage = () => {
 
   const [clients, setClients] = useState([]);
 
+  // 1. NEW: State for handling code execution
+  const [output, setOutput] = useState("");
+  const [isCompiling, setIsCompiling] = useState(false);
+
   const socketRef = useRef(null);
   const codeRef = useRef(null);
   const location = useLocation();
@@ -88,6 +92,34 @@ const EditorPage = () => {
     reactNavigator("/");
   }
 
+  // 2. NEW: Function to run the code via Piston API
+  const runCode = async () => {
+    setIsCompiling(true);
+    try {
+      const response = await fetch("https://emkc.org/api/v2/piston/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          language: lang === 'clike' ? 'java' : lang, // Fallback for clike
+          version: "*",
+          files: [{ content: codeRef.current }]
+        })
+      });
+      const data = await response.json();
+      
+      // Handle API errors or success
+      if (data.run) {
+          setOutput(data.run.output);
+      } else {
+          setOutput("Error: " + (data.message || "Unknown error"));
+      }
+    } catch (error) {
+      setOutput("Error running code: " + error.message);
+    } finally {
+      setIsCompiling(false);
+    }
+  };
+
   if (!location.state) {
     return <Navigate to="/" />;
   }
@@ -146,9 +178,7 @@ const EditorPage = () => {
           <select
             value={them}
             onChange={(e) => {
-              //   setCode(codeRef.current);
               setThem(e.target.value);
-              //   window.location.reload();
             }}
             className="seLang"
           >
@@ -220,12 +250,38 @@ const EditorPage = () => {
           </select>
         </label>
 
+        {/* 3. NEW: Run Button */}
+        <button 
+          className="btn runBtn" 
+          onClick={runCode} 
+          style={{backgroundColor: '#28a745', marginBottom: '10px'}}
+        >
+          {isCompiling ? "Running..." : "Run Code ▶"}
+        </button>
+
         <button className="btn copyBtn" onClick={copyRoomId}>
           Copy ROOM ID
         </button>
         <button className="btn leaveBtn" onClick={leaveRoom}>
           Leave
         </button>
+
+        {/* 4. NEW: Output Window (Added at bottom of sidebar) */}
+        <div style={{
+            marginTop: '15px',
+            backgroundColor: '#1e1e1e',
+            color: '#fff',
+            borderRadius: '5px',
+            padding: '10px',
+            fontFamily: 'monospace',
+            height: '150px',
+            overflowY: 'auto',
+            fontSize: '0.9rem',
+            whiteSpace: 'pre-wrap'
+        }}>
+           <strong style={{color: '#888'}}>Output:</strong><br/>
+           {output || "Run code to see output..."}
+        </div>
       </div>
 
       <div className="editorWrap">
@@ -233,7 +289,6 @@ const EditorPage = () => {
           socketRef={socketRef}
           roomId={roomId}
           onCodeChange={(code) => {
-            console.log("on code change" + code);
             codeRef.current = code;
           }}
         />
