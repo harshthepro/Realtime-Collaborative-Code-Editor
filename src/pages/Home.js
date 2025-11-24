@@ -1,7 +1,7 @@
-import React, {useState} from 'react';
-import {v4 as uuidV4} from 'uuid';
+import React, { useState } from 'react';
+import { v4 as uuidV4 } from 'uuid';
 import toast from 'react-hot-toast';
-import {Link, useNavigate} from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -13,12 +13,12 @@ const Home = () => {
         e.preventDefault();
         const id = uuidV4();
         setRoomId(id);
-        toast.success('Created a new room');
+        toast.success('Created a new secure session');
     };
 
     const joinRoom = () => {
         if (!roomId || !username) {
-            toast.error('ROOM ID & username is required');
+            toast.error('ROOM ID & Username is required');
             return;
         }
 
@@ -39,12 +39,17 @@ const Home = () => {
     return (
         <div className="homePageWrapper">
             <div className="formWrapper">
-                <img
-                    className="homePageLogo"
-                    src="/logo.png"
-                    alt="code-sync-logo"
-                />
-                <h4 className="mainLabel">Generate new room or paste invitation ROOM ID</h4>
+                {/* PROFESSIONAL BRANDING - No Image, just Text */}
+                <div style={{textAlign: 'center', marginBottom: '30px'}}>
+                   <h1 style={{color: '#4aed88', fontWeight: 'bold', fontSize: '2.5rem', margin: 0, lineHeight: '1'}}>
+                       Dev<span style={{color: '#fff'}}>Flow</span>
+                   </h1>
+                   <p style={{color: '#666', marginTop: '8px', fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 'bold'}}>
+                       Realtime Collaboration Suite
+                   </p>
+                </div>
+
+                <h4 className="mainLabel">Paste invitation ROOM ID</h4>
                 <div className="inputGroup">
                     <input
                         type="text"
@@ -63,26 +68,17 @@ const Home = () => {
                         onKeyUp={handleInputEnter}
                     />
                     <button className="btn joinBtn" onClick={joinRoom}>
-                        Join
+                        Join Room
                     </button>
                     <span className="createInfo">
-                        If you don't have an invite then create &nbsp;
-                        <Link
-                            onClick={createNewRoom}
-                            href=""
-                            className="createNewBtn"
-                        >
-                            new room
-                        </Link>
+                        If you don't have an invite then &nbsp;
+                        <a onClick={createNewRoom} href="" className="createNewBtn">
+                            create new room
+                        </a>
                     </span>
                 </div>
             </div>
-            <footer>
-                <h4>
-                    Build by &nbsp;
-                    <Link href="https://github.com/Mohitur669" target="_blank" rel="noopener noreferrer">Mohd Mohitur Rahaman</Link>
-                </h4>
-            </footer>
+            {/* FOOTER IS REMOVED */}
         </div>
     );
 };
